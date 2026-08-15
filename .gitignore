@@ -1,0 +1,17 @@
+# Agent metadata and skills
+.agents/
+skills-lock.json
+
+# Python & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+
+# Marimo
+.marimo/
+
+# macOS system files
+.DS_Store
