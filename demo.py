@@ -1,21 +1,19 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
+#     "anywidget",
 #     "marimo",
 #     "numpy",
 #     "scipy",
-#     "anywidget",
+#     "soundfile",
 #     "traitlets",
 # ]
 # ///
 
 import marimo
 
-__generated_with = "0.23.16"
-app = marimo.App(
-    width="medium",
-    app_title="Audio Sampling & The Nyquist Principle",
-)
+__generated_with = "0.11.0"
+app = marimo.App(width="medium", app_title="Audio Sampling & The Nyquist Principle")
 
 
 @app.cell(hide_code=True)
@@ -27,17 +25,17 @@ def imports():
     import numpy as np
     import scipy.io.wavfile as wav
     import scipy.signal
+    import soundfile as sf
     import traitlets
-
-    return anywidget, base64, io, mo, np, scipy, traitlets, wav
+    return anywidget, base64, io, mo, np, scipy, sf, traitlets, wav
 
 
 @app.cell(hide_code=True)
-def pure_dsp_engine(base64, io, np, scipy, wav):
+def pure_dsp_engine(base64, io, np, scipy, sf, wav):
     def synth_educational_bell(duration_s: float = 3.0, sr: int = 48000) -> tuple[np.ndarray, int]:
         """Synthesizes a rich harmonic chime with distinct high overtones up to 14 kHz."""
         t = np.linspace(0, duration_s, int(duration_s * sr), endpoint=False)
-    
+        
         # Harmonic overtone series
         harmonics = [
             (440.0, 0.40, 1.2),    # A4 fundamental (warmth)
@@ -48,17 +46,17 @@ def pure_dsp_engine(base64, io, np, scipy, wav):
             (11000.0, 0.08, 5.0),  # Metallic sparkle overtone
             (14080.0, 0.06, 6.0),  # Ultra-high shimmer
         ]
-    
+        
         signal = np.zeros_like(t)
         for freq, amp, decay_rate in harmonics:
             if freq < sr / 2.0:
                 env = np.exp(-decay_rate * (t % (duration_s / 2.0)))
                 signal += amp * np.sin(2.0 * np.pi * freq * t) * env
-            
+                
         # Metallic transient attack
         noise = np.random.uniform(-0.1, 0.1, len(t)) * np.exp(-15.0 * (t % (duration_s / 2.0)))
         signal += noise
-    
+        
         # Smooth seamless looping crossfade
         fade_len = int(0.05 * sr)
         if fade_len > 0 and len(signal) > 2 * fade_len:
@@ -66,19 +64,19 @@ def pure_dsp_engine(base64, io, np, scipy, wav):
             fade_out = np.linspace(1, 0, fade_len)
             signal[:fade_len] *= fade_in
             signal[-fade_len:] *= fade_out
-        
+            
         # Normalize to [-0.95, 0.95]
         max_val = np.max(np.abs(signal))
         if max_val > 0:
             signal = (signal / max_val) * 0.95
-        
+            
         return signal.astype(np.float32), sr
 
-    def load_audio_data(raw_bytes: bytes | None, filename: str | None = None) -> tuple[np.ndarray, int, str]:
-        """Loads uploaded audio or gracefully falls back to synthesized harmonic bell."""
+    def load_audio_data(raw_bytes: bytes | None, filename: str | None = None, max_duration_s: float = 8.0) -> tuple[np.ndarray, int, str]:
+        """Loads uploaded audio (.wav, .mp3, .ogg, .flac) or gracefully falls back to synthesized harmonic bell."""
         if raw_bytes and len(raw_bytes) > 0:
             try:
-                sr, data = wav.read(io.BytesIO(raw_bytes))
+                data, sr = sf.read(io.BytesIO(raw_bytes))
                 if data.ndim > 1:
                     data = data.mean(axis=1)
                 if np.issubdtype(data.dtype, np.integer):
@@ -86,8 +84,24 @@ def pure_dsp_engine(base64, io, np, scipy, wav):
                     audio = data.astype(np.float32) / max_int
                 else:
                     audio = data.astype(np.float32)
+                
+                # Trim to loop snippet if longer than max_duration_s
+                max_samples = int(max_duration_s * sr)
+                if len(audio) > max_samples:
+                    audio = audio[:max_samples]
+                
+                # Smooth loop crossfade
+                fade_len = int(0.04 * sr)
+                if fade_len > 0 and len(audio) > 2 * fade_len:
+                    audio[:fade_len] *= np.linspace(0, 1, fade_len)
+                    audio[-fade_len:] *= np.linspace(1, 0, fade_len)
+                
+                max_val = np.max(np.abs(audio))
+                if max_val > 0:
+                    audio = (audio / max_val) * 0.95
+                
                 name = filename if filename else "Uploaded Audio"
-                return audio, int(sr), name
+                return audio.astype(np.float32), int(sr), name
             except Exception:
                 pass
         audio, sr = synth_educational_bell(3.0, 48000)
@@ -129,6 +143,7 @@ def pure_dsp_engine(base64, io, np, scipy, wav):
         compute_audio_metrics,
         load_audio_data,
         resample_audio,
+        synth_educational_bell,
     )
 
 
@@ -523,8 +538,7 @@ def player_widget_definition(anywidget, traitlets):
             }
         };
         """
-
-    return (AudioSamplingPlayer,)
+    return AudioSamplingPlayer,
 
 
 @app.cell(hide_code=True)
@@ -548,7 +562,7 @@ def ui_controls(mo):
         value="48,000 Hz (Studio HD • Nyquist: 24.0 kHz)",
         label="Target Sampling Rate (fs)",
     )
-    return audio_upload, rate_select
+    return audio_upload, rate_select, sampling_rates
 
 
 @app.cell(hide_code=True)
@@ -573,11 +587,28 @@ def process_audio(
     meta_orig = compute_audio_metrics(source_audio, source_sr)
     meta_res = compute_audio_metrics(resampled_audio, actual_sr)
     wav_b64 = audio_to_base64_wav(resampled_audio, actual_sr)
-    return meta_orig, meta_res, source_name, wav_b64
+    return (
+        actual_sr,
+        meta_orig,
+        meta_res,
+        raw_content,
+        resampled_audio,
+        source_audio,
+        source_name,
+        source_sr,
+        target_sr,
+        uploaded_name,
+        wav_b64,
+    )
 
 
 @app.cell(hide_code=True)
-def web_audio_player(AudioSamplingPlayer, meta_res, source_name, wav_b64):
+def web_audio_player(
+    AudioSamplingPlayer,
+    meta_res,
+    source_name,
+    wav_b64,
+):
     player_widget = AudioSamplingPlayer(
         b64_data=wav_b64,
         sr=meta_res["sampling_rate"],
@@ -585,7 +616,7 @@ def web_audio_player(AudioSamplingPlayer, meta_res, source_name, wav_b64):
         duration_s=meta_res["duration_s"],
         clip_name=source_name,
     )
-    return (player_widget,)
+    return player_widget,
 
 
 @app.cell(hide_code=True)
@@ -624,7 +655,7 @@ def summary_and_takeaway(meta_orig, meta_res, mo):
         ),
         kind="info",
     )
-    return metrics_card, takeaway_box
+    return metrics_card, size_saving, takeaway_box
 
 
 @app.cell(hide_code=True)
@@ -657,7 +688,7 @@ def app_layout(
     ], gap=1.5)
 
     notebook_view
-    return
+    return controls_panel, header, notebook_view
 
 
 if __name__ == "__main__":
