@@ -9,9 +9,9 @@
 """Sound I/O, preset management, serialization, and synthetic audio generation.
 
 Handles decoding audio files (.wav in pure Python for 100% WASM/Pyodide compatibility,
-with optional soundfile fallback for .mp3/.ogg/.flac), loading bundled presets (with
-remote GitHub raw fallback for WASM / marimo.app environments where binary assets are
-not cloned into Pyodide virtual FS), base64 WAV data URI encoding, and fallback synthesis.
+with optional soundfile fallback for .mp3/.ogg/.flac), loading bundled presets (via
+embedded compressed data module for 100% offline WASM compatibility on marimo.app),
+base64 WAV data URI encoding, and fallback synthesis.
 """
 
 from __future__ import annotations
@@ -19,7 +19,6 @@ from __future__ import annotations
 import base64
 import io
 import pathlib
-import urllib.request
 import numpy as np
 import scipy.io.wavfile as wav
 
@@ -28,8 +27,15 @@ try:
 except Exception:
     sf = None
 
+try:
+    import preset_data
+except ImportError:
+    try:
+        from . import preset_data
+    except Exception:
+        preset_data = None
+
 _PRESET_DIR = pathlib.Path(__file__).parent / "assets" / "presets"
-_GITHUB_RAW_BASE = "https://raw.githubusercontent.com/mushtaq/kimiya-assignments/main/sampling/assets/presets"
 
 PRESETS: dict[str, dict[str, str]] = {
     "jazz_vibes": {
@@ -144,7 +150,7 @@ def decode_audio_bytes(raw_bytes: bytes, max_duration_s: float = 8.0) -> tuple[n
 
 
 def load_preset_audio(preset_key: str) -> tuple[np.ndarray, int, str]:
-    """Loads a preset audio file (from local disk or GitHub Raw in WASM) with in-memory caching."""
+    """Loads a preset audio file via preset_data module (or local disk) with in-memory caching."""
     if preset_key in _PRESET_CACHE:
         return _PRESET_CACHE[preset_key]
 
@@ -152,27 +158,23 @@ def load_preset_audio(preset_key: str) -> tuple[np.ndarray, int, str]:
         preset_info = PRESETS[preset_key]
         raw_bytes = None
 
-        # 1. Try reading from local / virtual file system first (if non-empty)
-        local_path = _PRESET_DIR / preset_info["file"]
-        if local_path.exists():
+        # 1. Try embedded preset_data module first (guaranteed 100% available in WASM & local)
+        if preset_data is not None:
             try:
-                content = local_path.read_bytes()
-                if len(content) > 100:
-                    raw_bytes = content
+                raw_bytes = preset_data.get_preset_bytes(preset_key)
             except Exception:
                 pass
 
-        # 2. Fallback for WASM / marimo.app (where binary assets are 0-byte stubs or missing)
+        # 2. Try reading from local / virtual file system
         if raw_bytes is None:
-            try:
-                url = f"{_GITHUB_RAW_BASE}/{preset_info['file']}"
-                req = urllib.request.Request(url, headers={"User-Agent": "marimo-sampling"})
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    data = resp.read()
-                    if len(data) > 100:
-                        raw_bytes = data
-            except Exception:
-                pass
+            local_path = _PRESET_DIR / preset_info["file"]
+            if local_path.exists():
+                try:
+                    content = local_path.read_bytes()
+                    if len(content) > 100:
+                        raw_bytes = content
+                except Exception:
+                    pass
 
         if raw_bytes is not None:
             try:
