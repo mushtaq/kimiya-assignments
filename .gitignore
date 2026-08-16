@@ -12,6 +12,7 @@ venv/
 
 # Marimo
 .marimo/
+__marimo__/
 
 # macOS system files
 .DS_Store
