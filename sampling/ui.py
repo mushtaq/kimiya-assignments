@@ -1,10 +1,3 @@
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#     "marimo",
-# ]
-# ///
-
 """Marimo UI components and 2-column responsive dashboard layout.
 
 Provides audio upload, a dynamic sampling rate radio ladder with inline

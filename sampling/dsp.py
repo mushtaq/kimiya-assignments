@@ -1,12 +1,3 @@
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#     "numpy",
-#     "scipy",
-#     "soundfile",
-# ]
-# ///
-
 """Pure Python Mathematical Digital Signal Processing (DSP) Engine.
 
 Demonstrates band-limited harmonic synthesis, audio loading/decoding,

@@ -1,11 +1,3 @@
-# /// script
-# requires-python = ">=3.11"
-# dependencies = [
-#     "anywidget",
-#     "traitlets",
-# ]
-# ///
-
 """Frontend AnyWidget visualizer for audio sampling and Nyquist limit analysis.
 
 Loads external JavaScript and CSS assets for high-DPI dual-domain rendering:
