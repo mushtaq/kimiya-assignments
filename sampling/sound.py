@@ -9,9 +9,8 @@
 """Sound I/O, preset management, serialization, and synthetic audio generation.
 
 Handles decoding audio files (.wav in pure Python for 100% WASM/Pyodide compatibility,
-with optional soundfile fallback for .mp3/.ogg/.flac), loading bundled presets (with
-remote GitHub raw fallback for WebAssembly environments), base64 WAV data URI encoding,
-and synthetic harmonic bell generation.
+with optional soundfile fallback for .mp3/.ogg/.flac), loading bundled presets directly
+from the virtual/local filesystem, base64 WAV data URI encoding, and fallback synthesis.
 """
 
 from __future__ import annotations
@@ -19,7 +18,6 @@ from __future__ import annotations
 import base64
 import io
 import pathlib
-import urllib.request
 import numpy as np
 import scipy.io.wavfile as wav
 
@@ -29,7 +27,6 @@ except Exception:
     sf = None
 
 _PRESET_DIR = pathlib.Path(__file__).parent / "assets" / "presets"
-_GITHUB_RAW_BASE = "https://raw.githubusercontent.com/mushtaq/kimiya-assignments/main/sampling/assets/presets"
 
 PRESETS: dict[str, dict[str, str]] = {
     "jazz_vibes": {
@@ -144,34 +141,16 @@ def decode_audio_bytes(raw_bytes: bytes, max_duration_s: float = 8.0) -> tuple[n
 
 
 def load_preset_audio(preset_key: str) -> tuple[np.ndarray, int, str]:
-    """Loads a preset audio file (local disk or GitHub raw in WASM) with in-memory caching."""
+    """Loads a preset audio file from local/virtual assets/presets with in-memory caching."""
     if preset_key in _PRESET_CACHE:
         return _PRESET_CACHE[preset_key]
 
     if preset_key in PRESETS:
         preset_info = PRESETS[preset_key]
-        raw_bytes = None
-
-        # 1. Try reading from local file system
         local_path = _PRESET_DIR / preset_info["file"]
         if local_path.exists():
             try:
                 raw_bytes = local_path.read_bytes()
-            except Exception:
-                pass
-
-        # 2. If not on local disk (e.g. Pyodide/WASM on marimo.app), fetch via HTTP from GitHub raw
-        if raw_bytes is None:
-            try:
-                url = f"{_GITHUB_RAW_BASE}/{preset_info['file']}"
-                req = urllib.request.Request(url, headers={"User-Agent": "marimo-sampling"})
-                with urllib.request.urlopen(req, timeout=10) as resp:
-                    raw_bytes = resp.read()
-            except Exception:
-                pass
-
-        if raw_bytes is not None:
-            try:
                 audio, sr = decode_audio_bytes(raw_bytes)
                 result = (audio, sr, preset_info["name"])
                 _PRESET_CACHE[preset_key] = result
