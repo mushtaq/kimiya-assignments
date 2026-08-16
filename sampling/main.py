@@ -29,26 +29,77 @@ app = marimo.App(
 
 @app.cell(hide_code=True)
 def imports():
-    return
+    import marimo as mo
+    import dsp
+    import ui
+    from widget import AudioSamplingPlayer
+
+    return AudioSamplingPlayer, dsp, mo, ui
 
 
 @app.cell(hide_code=True)
-def controls():
-    return
+def controls(ui):
+    audio_upload, rate_select = ui.create_controls()
+    return audio_upload, rate_select
 
 
 @app.cell(hide_code=True)
-def player_init():
-    return
+def player_init(AudioSamplingPlayer, mo):
+    player_widget = mo.ui.anywidget(AudioSamplingPlayer())
+    return (player_widget,)
 
 
 @app.cell(hide_code=True)
-def process_audio():
-    return
+def process_audio(audio_upload, dsp, player_widget, rate_select):
+    raw_content = audio_upload.contents() if audio_upload.value else None
+    uploaded_name = audio_upload.name() if audio_upload.value else None
+    source_audio, source_sr, source_name = dsp.load_audio_data(raw_content, uploaded_name)
+
+    target_sr = rate_select.value if rate_select.value else source_sr
+    resampled_audio, actual_sr = dsp.resample_audio(source_audio, source_sr, target_sr)
+
+    meta_orig = dsp.compute_audio_metrics(source_audio, source_sr)
+    meta_res = dsp.compute_audio_metrics(resampled_audio, actual_sr)
+    wav_b64 = dsp.audio_to_base64_wav(resampled_audio, actual_sr)
+
+    # Directly synchronize AnyWidget traitlets without remounting DOM
+    player_widget.widget.b64_data = wav_b64
+    player_widget.widget.sr = meta_res["sampling_rate"]
+    player_widget.widget.nyquist_hz = meta_res["nyquist_hz"]
+    player_widget.widget.duration_s = meta_res["duration_s"]
+    player_widget.widget.clip_name = source_name
+
+    return meta_orig, meta_res
 
 
 @app.cell(hide_code=True)
-def app_view():
+def app_view(
+    audio_upload,
+    meta_orig,
+    meta_res,
+    mo,
+    player_widget,
+    rate_select,
+    ui,
+):
+    header = ui.create_header()
+    controls_card = ui.create_controls_card(audio_upload, rate_select)
+    metrics_card = ui.create_metrics_card(meta_orig, meta_res)
+    takeaway_box = ui.create_takeaway(meta_res["nyquist_hz"])
+
+    left_column = mo.vstack([
+        header,
+        controls_card,
+        metrics_card,
+    ], gap=1.0)
+
+    right_column = mo.vstack([
+        player_widget,
+        takeaway_box,
+    ], gap=1.0)
+
+    dashboard = ui.create_dashboard_layout(left_column, right_column)
+    dashboard
     return
 
 
