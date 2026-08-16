@@ -9,6 +9,23 @@ from __future__ import annotations
 import marimo as mo
 
 
+def create_source_dropdown() -> mo.ui.dropdown:
+    """Creates a dropdown selector for preset audio clips or custom upload."""
+    options = {
+        "🎷 Jazz Vibes (Music • Default)": "jazz_vibes",
+        "🎻 Classical Strings (Orchestra)": "classical_strings",
+        "🥁 Drums & Bass Beat (Percussion)": "drums_beat",
+        "🎙️ Spoken Speech (Voice)": "speech_voice",
+        "🎺 Solo Trumpet (Fanfare)": "solo_trumpet",
+        "🔔 Harmonic Bell (Synthetic)": "bell",
+        "📁 Upload Custom Audio...": "upload",
+    }
+    return mo.ui.dropdown(
+        options=options,
+        value="🎷 Jazz Vibes (Music • Default)",
+    )
+
+
 def create_audio_upload() -> mo.ui.file:
     """Creates audio upload button for custom sound files."""
     return mo.ui.file(
@@ -67,11 +84,23 @@ def create_header() -> mo.Html:
     ], gap=0.2)
 
 
-def create_controls_card(audio_upload: mo.ui.file, rate_select: mo.ui.radio) -> mo.Html:
-    """Groups audio source selector and sampling rate radio list with inline savings."""
+def create_controls_card(
+    source_select: mo.ui.dropdown,
+    audio_upload: mo.ui.file,
+    rate_select: mo.ui.radio,
+) -> mo.Html:
+    """Groups audio source dropdown, conditional file upload, and sampling rate radio list."""
+    if source_select.value == "upload":
+        source_body = mo.vstack([
+            source_select,
+            audio_upload,
+        ], gap=0.3)
+    else:
+        source_body = source_select
+
     source_section = mo.vstack([
         mo.md("**Audio Source**"),
-        audio_upload,
+        source_body,
     ], gap=0.3)
 
     rate_section = mo.vstack([

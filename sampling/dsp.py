@@ -18,9 +18,35 @@ from __future__ import annotations
 import base64
 import io
 import numpy as np
+import pathlib
 import scipy.io.wavfile as wav
 import scipy.signal
 import soundfile as sf
+
+_PRESET_DIR = pathlib.Path(__file__).parent / "assets" / "presets"
+
+PRESETS: dict[str, dict[str, str]] = {
+    "jazz_vibes": {
+        "name": "Jazz Vibes (Kevin MacLeod)",
+        "file": "jazz_vibes.ogg",
+    },
+    "classical_strings": {
+        "name": "Classical Strings (Brahms)",
+        "file": "classical_strings.ogg",
+    },
+    "drums_beat": {
+        "name": "Drums & Bass Beat (Admiral Bob)",
+        "file": "drums_beat.ogg",
+    },
+    "speech_voice": {
+        "name": "Spoken Speech (LibriSpeech)",
+        "file": "speech_voice.ogg",
+    },
+    "solo_trumpet": {
+        "name": "Solo Trumpet (Mihai Sorohan)",
+        "file": "solo_trumpet.ogg",
+    },
+}
 
 
 def synth_educational_bell(duration_s: float = 3.0, sr: int = 48000) -> tuple[np.ndarray, int]:
@@ -61,12 +87,51 @@ def synth_educational_bell(duration_s: float = 3.0, sr: int = 48000) -> tuple[np
     return signal.astype(np.float32), sr
 
 
+def load_preset_audio(preset_key: str) -> tuple[np.ndarray, int, str]:
+    """Loads a bundled preset audio file from assets/presets or falls back to synthetic bell."""
+    if preset_key in PRESETS:
+        preset_info = PRESETS[preset_key]
+        path = _PRESET_DIR / preset_info["file"]
+        if path.exists():
+            try:
+                data, sr = sf.read(path)
+                if data.ndim > 1:
+                    data = data.mean(axis=1)
+                max_val = np.max(np.abs(data))
+                if max_val > 0:
+                    data = (data / max_val) * 0.95
+                return data.astype(np.float32), int(sr), preset_info["name"]
+            except Exception:
+                pass
+
+    if preset_key == "bell":
+        audio, sr = synth_educational_bell()
+        return audio, sr, "Harmonic Bell (Synthetic)"
+
+    # Fallback to jazz_vibes default or bell
+    default_path = _PRESET_DIR / "jazz_vibes.ogg"
+    if default_path.exists():
+        try:
+            data, sr = sf.read(default_path)
+            if data.ndim > 1:
+                data = data.mean(axis=1)
+            max_val = np.max(np.abs(data))
+            if max_val > 0:
+                data = (data / max_val) * 0.95
+            return data.astype(np.float32), int(sr), "Jazz Vibes (Kevin MacLeod)"
+        except Exception:
+            pass
+
+    audio, sr = synth_educational_bell()
+    return audio, sr, "Default Harmonic Bell"
+
+
 def load_audio_data(
     raw_bytes: bytes | None,
     filename: str | None = None,
     max_duration_s: float = 8.0,
 ) -> tuple[np.ndarray, int, str]:
-    """Loads uploaded audio (.wav, .mp3, .ogg, .flac) or falls back to the educational bell."""
+    """Loads uploaded audio (.wav, .mp3, .ogg, .flac) or falls back to preset."""
     if raw_bytes:
         try:
             data, sr = sf.read(io.BytesIO(raw_bytes))
@@ -97,8 +162,21 @@ def load_audio_data(
             return audio, int(sr), name
         except Exception:
             pass
-    audio, sr = synth_educational_bell()
-    return audio, sr, "Default Harmonic Bell"
+    return load_preset_audio("jazz_vibes")
+
+
+def load_preset_or_upload(
+    source_key: str,
+    raw_bytes: bytes | None = None,
+    filename: str | None = None,
+    max_duration_s: float = 8.0,
+) -> tuple[np.ndarray, int, str]:
+    """Routes audio loading based on selected source (preset, upload, or synthetic bell)."""
+    if source_key == "upload":
+        if raw_bytes:
+            return load_audio_data(raw_bytes, filename, max_duration_s)
+        return load_preset_audio("jazz_vibes")
+    return load_preset_audio(source_key)
 
 
 def resample_audio(audio: np.ndarray, orig_sr: int, target_sr: int) -> tuple[np.ndarray, int]:

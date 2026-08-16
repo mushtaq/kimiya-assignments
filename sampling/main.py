@@ -21,10 +21,7 @@ Composed Marimo application that orchestrates:
 import marimo
 
 __generated_with = "0.23.16"
-app = marimo.App(
-    width="medium",
-    app_title="Audio Sampling",
-)
+app = marimo.App(width="medium", app_title="Audio Sampling")
 
 
 @app.cell(hide_code=True)
@@ -38,16 +35,21 @@ def imports():
 
 
 @app.cell(hide_code=True)
-def upload_control(ui):
+def source_control(ui):
+    source_select = ui.create_source_dropdown()
     audio_upload = ui.create_audio_upload()
-    return (audio_upload,)
+    return audio_upload, source_select
 
 
 @app.cell(hide_code=True)
-def load_source_audio(audio_upload, dsp):
+def load_source_audio(audio_upload, dsp, source_select):
     raw_content = audio_upload.contents() if audio_upload.value else None
     uploaded_name = audio_upload.name() if audio_upload.value else None
-    source_audio, source_sr, source_name = dsp.load_audio_data(raw_content, uploaded_name)
+    source_audio, source_sr, source_name = dsp.load_preset_or_upload(
+        source_select.value,
+        raw_content,
+        uploaded_name,
+    )
     return source_audio, source_name, source_sr
 
 
@@ -84,14 +86,21 @@ def process_audio(
     player_widget.widget.nyquist_hz = meta_res["nyquist_hz"]
     player_widget.widget.duration_s = meta_res["duration_s"]
     player_widget.widget.clip_name = source_name
-
     return (meta_res,)
 
 
 @app.cell(hide_code=True)
-def app_view(audio_upload, meta_res, mo, player_widget, rate_select, ui):
+def app_view(
+    audio_upload,
+    meta_res,
+    mo,
+    player_widget,
+    rate_select,
+    source_select,
+    ui,
+):
     header = ui.create_header()
-    controls_card = ui.create_controls_card(audio_upload, rate_select)
+    controls_card = ui.create_controls_card(source_select, audio_upload, rate_select)
     takeaway_box = ui.create_takeaway(meta_res["nyquist_hz"])
 
     left_column = mo.vstack([
