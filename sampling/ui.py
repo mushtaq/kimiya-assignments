@@ -180,13 +180,17 @@ def get_audio_insights(source_key: str, nyquist_hz: float, current_sr: int) -> s
 
 
 def create_takeaway(
-    source_key: str,
-    nyquist_hz: float,
-    current_sr: int,
+    source_key: str | float = "jazz_vibes",
+    nyquist_hz: float = 22050.0,
+    current_sr: int = 44100,
 ) -> mo.Html:
     """Generates a balanced 2-column educational callout explaining the Nyquist rule and audio-specific insights."""
+    if isinstance(source_key, (int, float)):
+        nyquist_hz = float(source_key)
+        source_key = "jazz_vibes"
+
     nyq_khz = nyquist_hz / 1000.0
-    insights = get_audio_insights(source_key, nyquist_hz, current_sr)
+    insights = get_audio_insights(str(source_key), nyquist_hz, current_sr)
 
     observations_col = mo.vstack([
         mo.md("**Auditory & Visual Observations**"),

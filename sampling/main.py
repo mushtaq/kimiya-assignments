@@ -104,7 +104,11 @@ def app_view(
 ):
     header = ui.create_header()
     controls_card = ui.create_controls_card(source_select, audio_upload, rate_select)
-    takeaway_box = ui.create_takeaway(meta_res["nyquist_hz"])
+    takeaway_box = ui.create_takeaway(
+        source_select.value,
+        meta_res["nyquist_hz"],
+        meta_res["sampling_rate"],
+    )
 
     left_column = mo.vstack([
         header,
