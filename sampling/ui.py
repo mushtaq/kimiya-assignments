@@ -69,8 +69,8 @@ def create_rate_radio(source_sr: int) -> mo.ui.radio:
 def create_header() -> mo.Html:
     """Renders clean title and description header."""
     return mo.vstack([
-        mo.md("### Audio Sampling & The Nyquist Principle"),
-        mo.md("Interactive exploration of discretization, band-limited anti-aliasing sinc resampling, and Nyquist-Shannon bandwidth."),
+        mo.md("### **Audio Sampling**"),
+        mo.md("Explore how sound is turned into digital snapshots (samples) and hear how changing the sample rate affects audio quality."),
     ], gap=0.2)
 
 
@@ -93,17 +93,17 @@ def create_controls_card(audio_upload: mo.ui.file, rate_select: mo.ui.radio) -> 
 
 
 def create_takeaway(nyquist_hz: float) -> mo.Html:
-    """Generates concise educational callout explaining the Nyquist-Shannon sampling theorem."""
+    """Generates a simple educational callout explaining the Nyquist rule for students."""
     nyq_khz = nyquist_hz / 1000.0
     return mo.callout(
         mo.md(
             f"""
-            **Nyquist-Shannon Sampling Theorem**  
-            To unambiguously reconstruct a continuous band-limited signal with bandwidth $B$, the sampling frequency must satisfy $f_s \\ge 2B$. The highest frequency component that can be recorded or reproduced is the **Nyquist Frequency**:
+            **The Nyquist Rule**  
+            To capture a sound wave cleanly, you need at least **2 sample points** for every wave cycle. That means the highest sound pitch you can record is always **half your sample rate**:
             
             $$f_{{\\text{{max}}}} = \\frac{{f_s}}{{2}} = \\mathbf{{{nyq_khz:.1f}\\text{{ kHz}}}}$$
 
-            When lowering $f_s$, content above the red dashed Nyquist threshold cannot be represented and is eliminated via a band-limited anti-aliasing sinc filter. In the oscilloscope above, notice how the discrete sample points space further apart as sample density decreases.
+            When you lower the sample rate, any sounds above the red dashed line get cut off, making the audio sound muffled. Notice how the sample dots on the waveform spread farther apart!
             """
         ),
         kind="neutral",

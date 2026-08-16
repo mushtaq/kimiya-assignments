@@ -10,7 +10,7 @@
 # ]
 # ///
 
-"""Digital Audio Sampling & The Nyquist Principle.
+"""Digital Audio Sampling.
 
 Composed Marimo application that orchestrates:
 - Pure Python DSP math (`dsp.py`)
@@ -23,7 +23,7 @@ import marimo
 __generated_with = "0.23.16"
 app = marimo.App(
     width="medium",
-    app_title="Audio Sampling & The Nyquist Principle",
+    app_title="Audio Sampling",
 )
 
 
