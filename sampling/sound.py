@@ -152,21 +152,25 @@ def load_preset_audio(preset_key: str) -> tuple[np.ndarray, int, str]:
         preset_info = PRESETS[preset_key]
         raw_bytes = None
 
-        # 1. Try reading from local / virtual file system first
+        # 1. Try reading from local / virtual file system first (if non-empty)
         local_path = _PRESET_DIR / preset_info["file"]
         if local_path.exists():
             try:
-                raw_bytes = local_path.read_bytes()
+                content = local_path.read_bytes()
+                if len(content) > 100:
+                    raw_bytes = content
             except Exception:
                 pass
 
-        # 2. Fallback for WASM / marimo.app (where binary assets are not cloned into Pyodide FS)
+        # 2. Fallback for WASM / marimo.app (where binary assets are 0-byte stubs or missing)
         if raw_bytes is None:
             try:
                 url = f"{_GITHUB_RAW_BASE}/{preset_info['file']}"
                 req = urllib.request.Request(url, headers={"User-Agent": "marimo-sampling"})
                 with urllib.request.urlopen(req, timeout=15) as resp:
-                    raw_bytes = resp.read()
+                    data = resp.read()
+                    if len(data) > 100:
+                        raw_bytes = data
             except Exception:
                 pass
 
