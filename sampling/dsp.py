@@ -24,10 +24,9 @@ import soundfile as sf
 
 
 def synth_educational_bell(duration_s: float = 3.0, sr: int = 48000) -> tuple[np.ndarray, int]:
-    """Synthesizes a rich harmonic chime with distinct high overtones up to 14 kHz."""
+    """Synthesizes a rich harmonic chime with distinct high overtones up to 14.08 kHz."""
     t = np.linspace(0, duration_s, int(duration_s * sr), endpoint=False)
 
-    # Harmonic overtone series: (freq_hz, amplitude, decay_rate)
     harmonics = [
         (440.0, 0.40, 1.2),    # A4 fundamental
         (880.0, 0.28, 1.8),    # A5 octave
@@ -41,15 +40,15 @@ def synth_educational_bell(duration_s: float = 3.0, sr: int = 48000) -> tuple[np
     signal = np.zeros_like(t)
     for freq, amp, decay_rate in harmonics:
         if freq < sr / 2.0:
-            env = np.exp(-decay_rate * (t % (duration_s / 2.0)))
+            env = np.exp(-decay_rate * t)
             signal += amp * np.sin(2.0 * np.pi * freq * t) * env
 
-    # Metallic transient attack
-    noise = np.random.uniform(-0.1, 0.1, len(t)) * np.exp(-15.0 * (t % (duration_s / 2.0)))
+    # Metallic transient attack at onset
+    noise = np.random.uniform(-0.12, 0.12, len(t)) * np.exp(-20.0 * t)
     signal += noise
 
-    # Smooth seamless looping crossfade
-    fade_len = int(0.05 * sr)
+    # Smooth crossfade at loop boundaries
+    fade_len = int(0.04 * sr)
     if fade_len > 0 and len(signal) > 2 * fade_len:
         signal[:fade_len] *= np.linspace(0, 1, fade_len)
         signal[-fade_len:] *= np.linspace(1, 0, fade_len)
@@ -108,7 +107,7 @@ def resample_audio(audio: np.ndarray, orig_sr: int, target_sr: int) -> tuple[np.
         return audio.copy(), orig_sr
     num_target_samples = int(round(len(audio) * float(target_sr) / orig_sr))
     resampled = scipy.signal.resample(audio, num_target_samples)
-    resampled = np.clip(resampled, -1.0, 1.0)
+    resampled = np.clip(np.real(resampled), -1.0, 1.0)
     return resampled.astype(np.float32), target_sr
 
 
@@ -144,5 +143,5 @@ if __name__ == "__main__":
 
     resampled, res_sr = resample_audio(audio, sr, 8000)
     res_metrics = compute_audio_metrics(resampled, res_sr)
-    print(f"Resampled to {res_sr} Hz: Nyquist limit = {res_metrics['nyquist_hz']/1000.0:.1f} kHz, PCM size = {res_metrics['pcm_kb']:.1f} KB")
+    print(f"Resampled to {res_sr} Hz: Nyquist limit = {res_metrics['nyquist_hz']/1000.0:.1f} kHz")
     print("DSP engine validated successfully!")

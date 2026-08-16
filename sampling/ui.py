@@ -5,10 +5,10 @@
 # ]
 # ///
 
-"""Marimo UI components and professional 2-column dashboard layout.
+"""Marimo UI components and 2-column responsive dashboard layout.
 
-Provides modular control widgets, a 2x2 metrics grid, theoretical callouts,
-and multi-column responsive dashboard composition with professional aesthetics.
+Provides modular control widgets, a selectable sampling rate radio list,
+a 2x2 transmission metrics grid, and educational Nyquist-Shannon callouts.
 """
 
 from __future__ import annotations
@@ -16,40 +16,39 @@ from __future__ import annotations
 import marimo as mo
 
 
-def create_controls() -> tuple[mo.ui.file, mo.ui.dropdown]:
-    """Creates audio upload button and sampling rate selection dropdown with full-width layout."""
+def create_controls() -> tuple[mo.ui.file, mo.ui.radio]:
+    """Creates audio upload button and sampling rate radio list."""
     audio_upload = mo.ui.file(
         filetypes=[".wav", ".mp3", ".ogg", ".flac"],
         label="Upload audio file",
     )
 
     sampling_rates = {
-        "4,000 Hz (Walkie-Talkie • 2 kHz Nyquist)": 4000,
-        "8,000 Hz (Telephone • 4 kHz Nyquist)": 8000,
-        "16,000 Hz (Voice Radio • 8 kHz Nyquist)": 16000,
-        "24,000 Hz (FM Quality • 12 kHz Nyquist)": 24000,
-        "44,100 Hz (CD Audio • 22.05 kHz Nyquist)": 44100,
         "48,000 Hz (Studio HD • 24 kHz Nyquist)": 48000,
+        "44,100 Hz (CD Audio • 22.05 kHz Nyquist)": 44100,
+        "24,000 Hz (FM Quality • 12 kHz Nyquist)": 24000,
+        "16,000 Hz (Voice Radio • 8 kHz Nyquist)": 16000,
+        "8,000 Hz (Telephone • 4 kHz Nyquist)": 8000,
+        "4,000 Hz (Walkie-Talkie • 2 kHz Nyquist)": 4000,
     }
 
-    rate_select = mo.ui.dropdown(
+    rate_select = mo.ui.radio(
         options=sampling_rates,
         value="48,000 Hz (Studio HD • 24 kHz Nyquist)",
-        full_width=True,
     )
     return audio_upload, rate_select
 
 
 def create_header() -> mo.Html:
-    """Renders a clean, professional header."""
+    """Renders clean title and description header."""
     return mo.vstack([
         mo.md("### Audio Sampling & The Nyquist Principle"),
-        mo.md("Interactive exploration of digital signal discretization, bandlimited reconstruction, and spectral bandwidth."),
+        mo.md("Interactive exploration of discretization, band-limited anti-aliasing sinc resampling, and Nyquist-Shannon bandwidth."),
     ], gap=0.2)
 
 
-def create_controls_card(audio_upload: mo.ui.file, rate_select: mo.ui.dropdown) -> mo.Html:
-    """Groups audio input and sampling rate dropdown into a structured, well-aligned card."""
+def create_controls_card(audio_upload: mo.ui.file, rate_select: mo.ui.radio) -> mo.Html:
+    """Groups audio source selector and sampling rate radio list."""
     source_section = mo.vstack([
         mo.md("**Audio Source**"),
         audio_upload,
@@ -67,7 +66,7 @@ def create_controls_card(audio_upload: mo.ui.file, rate_select: mo.ui.dropdown) 
 
 
 def create_metrics_card(meta_orig: dict, meta_res: dict) -> mo.Html:
-    """Renders a 2x2 grid comparing source and resampled audio metrics."""
+    """Renders 2x2 grid comparing source and resampled audio metrics."""
     orig_pcm = meta_orig.get("pcm_kb", 0.0)
     res_pcm = meta_res.get("pcm_kb", 0.0)
     size_saving = (1.0 - (res_pcm / orig_pcm)) * 100.0 if orig_pcm > 0 else 0.0
@@ -110,13 +109,13 @@ def create_metrics_card(meta_orig: dict, meta_res: dict) -> mo.Html:
 
 
 def create_takeaway(nyquist_hz: float) -> mo.Html:
-    """Generates a concise educational callout explaining the Nyquist principle."""
+    """Generates concise educational callout explaining the Nyquist-Shannon sampling theorem."""
     nyq_khz = nyquist_hz / 1000.0
     return mo.callout(
         mo.md(
             f"""
             **Nyquist-Shannon Sampling Theorem**  
-            To unambiguously reconstruct a continuous signal of bandwidth $B$, the sampling frequency must satisfy $f_s \\ge 2B$. The theoretical upper frequency limit is the **Nyquist Frequency**:
+            To unambiguously reconstruct a continuous band-limited signal with bandwidth $B$, the sampling frequency must satisfy $f_s \\ge 2B$. The highest frequency component that can be recorded or reproduced is the **Nyquist Frequency**:
             
             $$f_{{\\text{{max}}}} = \\frac{{f_s}}{{2}} = \\mathbf{{{nyq_khz:.1f}\\text{{ kHz}}}}$$
 

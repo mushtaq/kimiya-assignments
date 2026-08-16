@@ -1,0 +1,188 @@
+/* AudioSamplingPlayer AnyWidget Stylesheet
+   Clean, bespoke light aesthetic with high-contrast waveform & spectrum visuals.
+   Strict width constraints and min-width: 0 to eliminate layout shifts and flex blowout.
+*/
+
+:host {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+:host, .audio-player-card {
+  --ap-bg: #ffffff;
+  --ap-border: #e2e8f0;
+  --ap-text-primary: #0f172a;
+  --ap-text-secondary: #475569;
+  --ap-text-muted: #64748b;
+  --ap-btn-bg: #0f172a;
+  --ap-btn-hover: #1e293b;
+  --ap-btn-text: #ffffff;
+  --ap-btn-stop-bg: #dc2626;
+  --ap-btn-stop-hover: #b91c1c;
+  --ap-pill-bg: #f8fafc;
+  --ap-pill-border: #e2e8f0;
+  --ap-divider: #cbd5e1;
+  --ap-canvas-bg: #f8fafc;
+  --ap-canvas-border: #e2e8f0;
+  --ap-canvas-divider: #e2e8f0;
+  --ap-waveform: #94a3b8;
+  --ap-stem: #2563eb;
+  --ap-stem-alpha: rgba(37, 99, 235, 0.45);
+  --ap-fft-active: #3b82f6;
+  --ap-fft-cut: #cbd5e1;
+  --ap-nyquist: #dc2626;
+  --ap-nyquist-zone: rgba(225, 29, 72, 0.06);
+}
+
+.audio-player-card {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--ap-bg);
+  border: 1px solid var(--ap-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  color: var(--ap-text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.audio-player-card * {
+  box-sizing: border-box;
+}
+
+.ap-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.ap-transport-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.ap-play-btn {
+  background: var(--ap-btn-bg);
+  color: var(--ap-btn-text);
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s ease, transform 0.05s ease;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.ap-play-btn:hover {
+  background: var(--ap-btn-hover);
+}
+
+.ap-play-btn:active {
+  transform: scale(0.98);
+}
+
+.ap-play-btn.is-playing {
+  background: var(--ap-btn-stop-bg);
+  color: #ffffff;
+}
+
+.ap-play-btn.is-playing:hover {
+  background: var(--ap-btn-stop-hover);
+}
+
+.ap-time-readout {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  color: var(--ap-text-muted);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.ap-meta-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ap-text-secondary);
+  background: var(--ap-pill-bg);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--ap-pill-border);
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ap-clip-title {
+  color: var(--ap-text-primary);
+  font-weight: 600;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ap-divider-bar {
+  color: var(--ap-divider);
+  flex-shrink: 0;
+}
+
+.ap-nyquist-badge {
+  font-family: ui-monospace, monospace;
+  color: var(--ap-nyquist);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ap-canvas-container {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 250px;
+  background: var(--ap-canvas-bg);
+  border-radius: 6px;
+  border: 1px solid var(--ap-canvas-border);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.ap-viz-canvas {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 100%;
+  display: block;
+}
+
+.ap-footer-legend {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--ap-text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  padding: 0 2px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
