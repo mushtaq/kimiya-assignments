@@ -38,12 +38,12 @@ def pure_dsp_engine(base64, io, np, scipy, sf, wav):
         
         # Harmonic overtone series
         harmonics = [
-            (440.0, 0.40, 1.2),    # A4 fundamental (warmth)
+            (440.0, 0.40, 1.2),    # A4 fundamental
             (880.0, 0.28, 1.8),    # A5 octave
             (1760.0, 0.20, 2.5),   # A6 bell body
             (3520.0, 0.16, 3.2),   # A7 presence
-            (7040.0, 0.12, 4.0),   # A8 brilliance / air
-            (11000.0, 0.08, 5.0),  # Metallic sparkle overtone
+            (7040.0, 0.12, 4.0),   # A8 brilliance
+            (11000.0, 0.08, 5.0),  # Metallic sparkle
             (14080.0, 0.06, 6.0),  # Ultra-high shimmer
         ]
         
@@ -60,12 +60,10 @@ def pure_dsp_engine(base64, io, np, scipy, sf, wav):
         # Smooth seamless looping crossfade
         fade_len = int(0.05 * sr)
         if fade_len > 0 and len(signal) > 2 * fade_len:
-            fade_in = np.linspace(0, 1, fade_len)
-            fade_out = np.linspace(1, 0, fade_len)
-            signal[:fade_len] *= fade_in
-            signal[-fade_len:] *= fade_out
+            signal[:fade_len] *= np.linspace(0, 1, fade_len)
+            signal[-fade_len:] *= np.linspace(1, 0, fade_len)
             
-        # Normalize to [-0.95, 0.95]
+        # Normalize
         max_val = np.max(np.abs(signal))
         if max_val > 0:
             signal = (signal / max_val) * 0.95
@@ -105,7 +103,7 @@ def pure_dsp_engine(base64, io, np, scipy, sf, wav):
             except Exception:
                 pass
         audio, sr = synth_educational_bell(3.0, 48000)
-        return audio, sr, "Default Harmonic Bell (48 kHz Reference)"
+        return audio, sr, "Default Harmonic Bell"
 
     def resample_audio(audio: np.ndarray, orig_sr: int, target_sr: int) -> tuple[np.ndarray, int]:
         """Band-limited anti-aliased sinc resampling using Fourier method."""
@@ -113,14 +111,13 @@ def pure_dsp_engine(base64, io, np, scipy, sf, wav):
             return audio.copy(), orig_sr
         num_target_samples = int(round(len(audio) * float(target_sr) / orig_sr))
         resampled = scipy.signal.resample(audio, num_target_samples)
-        # Prevent clipping post sinc-interpolation
         resampled = np.clip(resampled, -1.0, 1.0)
         return resampled.astype(np.float32), target_sr
 
     def compute_audio_metrics(audio: np.ndarray, sr: int) -> dict:
         """Computes sample count, duration, raw PCM size, and theoretical Nyquist limit."""
         duration_s = float(len(audio)) / float(sr) if sr > 0 else 0.0
-        pcm_kb = float(len(audio) * 2) / 1024.0  # 16-bit uncompressed PCM
+        pcm_kb = float(len(audio) * 2) / 1024.0
         nyquist_hz = float(sr) / 2.0
         return {
             "duration_s": duration_s,
@@ -160,67 +157,60 @@ def player_widget_definition(anywidget, traitlets):
         export default {
             render({ model, el }) {
                 el.innerHTML = `
-                <div class="audio-player-card" style="
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    background: #090d16;
-                    border: 1px solid #1e293b;
-                    border-radius: 12px;
-                    padding: 20px;
-                    color: #f1f5f9;
-                    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+                <div class="audio-player" style="
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                    background: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 8px;
+                    padding: 14px 16px;
+                    color: #0f172a;
+                    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
                 ">
-                    <!-- Control Header -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
-                        <div style="display: flex; align-items: center; gap: 14px;">
+                    <!-- Minimal Controls Bar -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
                             <button class="play-btn" style="
-                                background: #2563eb;
+                                background: #0f172a;
                                 color: #ffffff;
                                 border: none;
-                                border-radius: 8px;
-                                padding: 9px 20px;
+                                border-radius: 6px;
+                                padding: 6px 14px;
                                 font-size: 13px;
-                                font-weight: 600;
-                                letter-spacing: 0.02em;
+                                font-weight: 500;
                                 cursor: pointer;
                                 display: inline-flex;
                                 align-items: center;
-                                gap: 8px;
-                                transition: all 0.15s ease;
+                                gap: 6px;
+                                transition: background 0.15s ease;
                             ">
-                                <span class="play-icon" style="font-size: 11px;">&#9654;</span>
-                                <span class="play-label">PLAY CONTINUOUS LOOP</span>
+                                <span class="play-icon" style="font-size: 10px;">&#9654;</span>
+                                <span class="play-label">Play</span>
                             </button>
-                            <div style="display: flex; flex-direction: column;">
-                                <span class="time-readout" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; color: #94a3b8;">0:00.0 / 0.00s</span>
-                                <span class="clip-title" style="font-size: 11px; color: #64748b;">Audio</span>
-                            </div>
+                            <span class="time-readout" style="font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; color: #64748b;">0:00.0 / 0.00s</span>
                         </div>
 
-                        <div style="display: flex; gap: 8px; align-items: center;">
-                            <div style="background: #131d2e; border: 1px solid #1e293b; border-radius: 6px; padding: 4px 10px; text-align: right;">
-                                <div style="font-size: 9px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em;">Active Rate</div>
-                                <div class="rate-badge" style="font-family: ui-monospace, monospace; font-size: 13px; font-weight: 600; color: #38bdf8;">-- Hz</div>
-                            </div>
-                            <div style="background: #1e131d; border: 1px solid #3b1d28; border-radius: 6px; padding: 4px 10px; text-align: right;">
-                                <div style="font-size: 9px; color: #f43f5e; text-transform: uppercase; letter-spacing: 0.05em;">Nyquist Limit</div>
-                                <div class="nyquist-badge" style="font-family: ui-monospace, monospace; font-size: 13px; font-weight: 600; color: #fb7185;">-- kHz</div>
-                            </div>
+                        <div style="display: flex; align-items: center; gap: 10px; font-size: 12px; color: #475569;">
+                            <span class="clip-title" style="color: #64748b; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Audio</span>
+                            <span style="color: #e2e8f0;">|</span>
+                            <span style="font-family: ui-monospace, monospace;"><strong class="rate-val" style="color: #0f172a;">--</strong> Hz</span>
+                            <span style="color: #e2e8f0;">|</span>
+                            <span style="font-family: ui-monospace, monospace;">Nyquist: <strong class="nyquist-val" style="color: #dc2626;">--</strong> kHz</span>
                         </div>
                     </div>
 
-                    <!-- 60fps Real-Time Canvas -->
-                    <canvas class="viz-canvas" width="700" height="230" style="
+                    <!-- Clean Slate Visualizer Canvas -->
+                    <canvas class="viz-canvas" width="700" height="190" style="
                         width: 100%;
-                        height: 230px;
-                        background: #040711;
-                        border-radius: 8px;
-                        border: 1px solid #1e293b;
+                        height: 190px;
+                        background: #f8fafc;
+                        border-radius: 6px;
+                        border: 1px solid #e2e8f0;
                         display: block;
                     "></canvas>
 
-                    <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 10.5px; color: #64748b; font-family: ui-monospace, monospace; flex-wrap: wrap; gap: 4px;">
-                        <span>TOP: TIME-DOMAIN WAVEFORM & DISCRETE SAMPLING STEMS</span>
-                        <span>BOTTOM: REAL-TIME FFT SPECTRUM & NYQUIST GATE</span>
+                    <div style="display: flex; justify-content: space-between; margin-top: 5px; font-size: 10.5px; color: #94a3b8; font-family: ui-monospace, monospace;">
+                        <span>Waveform & Samples</span>
+                        <span>Spectrum & Nyquist Limit</span>
                     </div>
                 </div>
                 `;
@@ -230,8 +220,8 @@ def player_widget_definition(anywidget, traitlets):
                 const playLabel = el.querySelector('.play-label');
                 const timeReadout = el.querySelector('.time-readout');
                 const clipTitle = el.querySelector('.clip-title');
-                const rateBadge = el.querySelector('.rate-badge');
-                const nyquistBadge = el.querySelector('.nyquist-badge');
+                const rateVal = el.querySelector('.rate-val');
+                const nyquistVal = el.querySelector('.nyquist-val');
                 const canvas = el.querySelector('.viz-canvas');
                 const ctx = canvas.getContext('2d');
 
@@ -276,27 +266,27 @@ def player_widget_definition(anywidget, traitlets):
                     return bytes.buffer;
                 }
 
-                function updateBadges() {
+                function updateLabels() {
                     const sr = model.get('sr') || 48000;
                     const nyq = model.get('nyquist_hz') || 24000;
                     const dur = model.get('duration_s') || 3.0;
                     const title = model.get('clip_name') || 'Harmonic Bell';
 
-                    rateBadge.textContent = sr.toLocaleString() + ' Hz';
-                    nyquistBadge.textContent = (nyq / 1000).toFixed(1) + ' kHz';
+                    rateVal.textContent = sr.toLocaleString();
+                    nyquistVal.textContent = (nyq / 1000).toFixed(1);
                     clipTitle.textContent = title;
                     timeReadout.textContent = '0:00.0 / ' + dur.toFixed(2) + 's';
                 }
 
-                function updateUiButton() {
+                function updatePlayButtonUi() {
                     if (state.isPlaying) {
-                        playBtn.style.background = '#e11d48';
+                        playBtn.style.background = '#dc2626';
                         playIcon.innerHTML = '&#10074;&#10074;';
-                        playLabel.textContent = 'STOP PLAYBACK';
+                        playLabel.textContent = 'Stop';
                     } else {
-                        playBtn.style.background = '#2563eb';
+                        playBtn.style.background = '#0f172a';
                         playIcon.innerHTML = '&#9654;';
-                        playLabel.textContent = 'PLAY CONTINUOUS LOOP';
+                        playLabel.textContent = 'Play';
                     }
                 }
 
@@ -331,7 +321,7 @@ def player_widget_definition(anywidget, traitlets):
                     state.sourceNode.start(0, offset);
                     state.isPlaying = true;
 
-                    updateUiButton();
+                    updatePlayButtonUi();
                     loopVisualizer();
                     if (state.timerId) clearInterval(state.timerId);
                     state.timerId = setInterval(drawFrame, 35);
@@ -348,7 +338,7 @@ def player_widget_definition(anywidget, traitlets):
                         state.pauseOffset = (state.audioCtx.currentTime - state.startTime) % dur;
                     }
                     state.isPlaying = false;
-                    updateUiButton();
+                    updatePlayButtonUi();
 
                     if (state.animId) cancelAnimationFrame(state.animId);
                     if (state.timerId) clearInterval(state.timerId);
@@ -368,7 +358,7 @@ def player_widget_definition(anywidget, traitlets):
                 };
 
                 function onDataChange() {
-                    updateBadges();
+                    updateLabels();
                     loadBuffer(() => {
                         if (state.isPlaying) {
                             startPlayback();
@@ -401,16 +391,19 @@ def player_widget_definition(anywidget, traitlets):
                     const nyquistFreq = model.get('nyquist_hz') || 24000.0;
                     const clipDuration = model.get('duration_s') || 3.0;
 
-                    ctx.fillStyle = '#040711';
+                    // Light canvas background
+                    ctx.fillStyle = '#f8fafc';
                     ctx.fillRect(0, 0, w, h);
 
-                    ctx.strokeStyle = '#1e293b';
+                    // Midline divider
+                    ctx.strokeStyle = '#e2e8f0';
                     ctx.lineWidth = 1;
                     ctx.beginPath();
                     ctx.moveTo(0, hHalf);
                     ctx.lineTo(w, hHalf);
                     ctx.stroke();
 
+                    // Progress readout
                     if (state.isPlaying && state.audioCtx) {
                         const elapsed = (state.audioCtx.currentTime - state.startTime) % clipDuration;
                         const min = Math.floor(elapsed / 60);
@@ -420,7 +413,7 @@ def player_widget_definition(anywidget, traitlets):
 
                     // 1. TIME DOMAIN
                     const midY = hHalf / 2;
-                    ctx.strokeStyle = '#0f172a';
+                    ctx.strokeStyle = '#f1f5f9';
                     ctx.beginPath();
                     ctx.moveTo(0, midY);
                     ctx.lineTo(w, midY);
@@ -438,33 +431,35 @@ def player_widget_definition(anywidget, traitlets):
                         }
                     } else {
                         for (let i = 0; i < timeData.length; i++) {
-                            timeData[i] = 128 + Math.round(35 * Math.sin(i * 0.06) + 15 * Math.sin(i * 0.18));
+                            timeData[i] = 128 + Math.round(30 * Math.sin(i * 0.06) + 12 * Math.sin(i * 0.18));
                         }
                     }
 
-                    ctx.strokeStyle = '#64748b';
-                    ctx.lineWidth = 1.6;
+                    // Reconstructed continuous line
+                    ctx.strokeStyle = '#94a3b8';
+                    ctx.lineWidth = 1.4;
                     ctx.beginPath();
                     const sliceWidth = w / timeData.length;
                     let x = 0;
                     for (let i = 0; i < timeData.length; i++) {
                         const v = timeData[i] / 128.0;
-                        const y = (v - 1.0) * (midY * 0.85) + midY;
+                        const y = (v - 1.0) * (midY * 0.82) + midY;
                         if (i === 0) ctx.moveTo(x, y);
                         else ctx.lineTo(x, y);
                         x += sliceWidth;
                     }
                     ctx.stroke();
 
+                    // Discrete sample stems & points
                     const stemInterval = Math.max(1, Math.round(48000 / activeSampleRate) * 3);
-                    ctx.fillStyle = '#38bdf8';
-                    ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+                    ctx.fillStyle = '#2563eb';
+                    ctx.strokeStyle = 'rgba(37, 99, 235, 0.4)';
                     ctx.lineWidth = 1.2;
 
                     for (let i = 0; i < timeData.length; i += stemInterval) {
                         const px = i * sliceWidth;
                         const v = timeData[i] / 128.0;
-                        const py = (v - 1.0) * (midY * 0.85) + midY;
+                        const py = (v - 1.0) * (midY * 0.82) + midY;
 
                         ctx.beginPath();
                         ctx.moveTo(px, midY);
@@ -472,13 +467,9 @@ def player_widget_definition(anywidget, traitlets):
                         ctx.stroke();
 
                         ctx.beginPath();
-                        ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+                        ctx.arc(px, py, 2.2, 0, Math.PI * 2);
                         ctx.fill();
                     }
-
-                    ctx.font = '10px ui-monospace, monospace';
-                    ctx.fillStyle = '#94a3b8';
-                    ctx.fillText('TIME SAMPLING: ' + activeSampleRate.toLocaleString() + ' SAMPLES/SEC', 12, 16);
 
                     // 2. FREQUENCY DOMAIN
                     const specY = hHalf;
@@ -491,44 +482,48 @@ def player_widget_definition(anywidget, traitlets):
                     const nyqFrac = Math.min(1.0, nyquistFreq / 24000.0);
                     const nyqX = Math.round(nyqFrac * w);
 
-                    ctx.fillStyle = 'rgba(244, 63, 94, 0.08)';
+                    // Attenuation zone shading
+                    ctx.fillStyle = 'rgba(225, 29, 72, 0.05)';
                     ctx.fillRect(nyqX, specY, w - nyqX, specH);
 
-                    const numBars = 110;
+                    const numBars = 120;
                     const barW = (w / numBars) - 1;
                     for (let i = 0; i < numBars; i++) {
                         const bin = Math.floor(i * (freqData.length / numBars));
-                        const val = freqData[bin] || (state.isPlaying ? 0 : Math.max(0, Math.round(150 * Math.exp(-i * 0.04))));
-                        const bH = (val / 255.0) * (specH - 26);
+                        const val = freqData[bin] || (state.isPlaying ? 0 : Math.max(0, Math.round(140 * Math.exp(-i * 0.04))));
+                        const bH = (val / 255.0) * (specH - 22);
                         const bx = i * (barW + 1);
-                        const by = h - bH - 3;
+                        const by = h - bH - 2;
 
-                        ctx.fillStyle = (bx < nyqX) ? '#2563eb' : '#f43f5e';
+                        ctx.fillStyle = (bx < nyqX) ? '#3b82f6' : '#cbd5e1';
                         ctx.fillRect(bx, by, barW, bH);
                     }
 
-                    ctx.strokeStyle = '#f43f5e';
-                    ctx.setLineDash([4, 4]);
-                    ctx.lineWidth = 1.6;
+                    // Nyquist line
+                    ctx.strokeStyle = '#dc2626';
+                    ctx.setLineDash([4, 3]);
+                    ctx.lineWidth = 1.4;
                     ctx.beginPath();
                     ctx.moveTo(nyqX, specY);
                     ctx.lineTo(nyqX, h);
                     ctx.stroke();
                     ctx.setLineDash([]);
 
-                    ctx.fillStyle = '#f43f5e';
+                    // Nyquist label
+                    ctx.fillStyle = '#dc2626';
                     ctx.font = '10px ui-monospace, monospace';
-                    const tagX = Math.max(12, Math.min(w - 180, nyqX + 8));
-                    ctx.fillText('NYQUIST CEILING: ' + (nyquistFreq / 1000.0).toFixed(1) + ' kHz', tagX, specY + 18);
+                    const tagX = Math.max(8, Math.min(w - 140, nyqX + 6));
+                    ctx.fillText('Nyquist: ' + (nyquistFreq / 1000.0).toFixed(1) + ' kHz', tagX, specY + 16);
 
-                    ctx.fillStyle = '#64748b';
-                    ctx.fillText('0 Hz', 12, h - 6);
-                    ctx.fillText('12 kHz', Math.floor(w / 2) - 18, h - 6);
-                    ctx.fillText('24 kHz', w - 50, h - 6);
+                    // Axis labels
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.fillText('0 Hz', 10, h - 5);
+                    ctx.fillText('12 kHz', Math.floor(w / 2) - 16, h - 5);
+                    ctx.fillText('24 kHz', w - 46, h - 5);
                 }
 
                 onDataChange();
-                updateUiButton();
+                updatePlayButtonUi();
                 setTimeout(drawFrame, 50);
 
                 return () => {
@@ -545,22 +540,22 @@ def player_widget_definition(anywidget, traitlets):
 def ui_controls(mo):
     audio_upload = mo.ui.file(
         filetypes=[".wav", ".mp3", ".ogg", ".flac"],
-        label="Audio File (Leave empty for default clip)",
+        label="Audio File (optional)",
     )
 
     sampling_rates = {
-        "4,000 Hz (Walkie-Talkie • Nyquist: 2.0 kHz)": 4000,
-        "8,000 Hz (Telephone • Nyquist: 4.0 kHz)": 8000,
-        "16,000 Hz (Voice Radio • Nyquist: 8.0 kHz)": 16000,
-        "24,000 Hz (FM Quality • Nyquist: 12.0 kHz)": 24000,
-        "44,100 Hz (Standard CD • Nyquist: 22.05 kHz)": 44100,
-        "48,000 Hz (Studio HD • Nyquist: 24.0 kHz)": 48000,
+        "4,000 Hz (Walkie-Talkie • 2 kHz Nyquist)": 4000,
+        "8,000 Hz (Telephone • 4 kHz Nyquist)": 8000,
+        "16,000 Hz (Voice Radio • 8 kHz Nyquist)": 16000,
+        "24,000 Hz (FM Quality • 12 kHz Nyquist)": 24000,
+        "44,100 Hz (CD Audio • 22.05 kHz Nyquist)": 44100,
+        "48,000 Hz (Studio HD • 24 kHz Nyquist)": 48000,
     }
 
     rate_select = mo.ui.dropdown(
         options=sampling_rates,
-        value="48,000 Hz (Studio HD • Nyquist: 24.0 kHz)",
-        label="Target Sampling Rate (fs)",
+        value="48,000 Hz (Studio HD • 24 kHz Nyquist)",
+        label="Target Sampling Rate",
     )
     return audio_upload, rate_select, sampling_rates
 
@@ -574,16 +569,13 @@ def process_audio(
     rate_select,
     resample_audio,
 ):
-    # 1. Load source audio or default harmonic chime
     raw_content = audio_upload.contents() if audio_upload.value else None
     uploaded_name = audio_upload.name() if audio_upload.value else None
     source_audio, source_sr, source_name = load_audio_data(raw_content, uploaded_name)
 
-    # 2. Resample to selected target rate
     target_sr = rate_select.value if rate_select.value else source_sr
     resampled_audio, actual_sr = resample_audio(source_audio, source_sr, target_sr)
 
-    # 3. Compute metrics & Base64 WAV data URI
     meta_orig = compute_audio_metrics(source_audio, source_sr)
     meta_res = compute_audio_metrics(resampled_audio, actual_sr)
     wav_b64 = audio_to_base64_wav(resampled_audio, actual_sr)
@@ -625,32 +617,29 @@ def summary_and_takeaway(meta_orig, meta_res, mo):
 
     metrics_card = mo.hstack([
         mo.stat(
-            label="Original Audio",
+            label="Source Rate",
             value=f"{meta_orig['sampling_rate']:,} Hz",
-            caption=f"{meta_orig['duration_s']:.2f}s • {meta_orig['sample_count']:,} samples • {meta_orig['pcm_kb']:.1f} KB",
+            caption=f"{meta_orig['duration_s']:.2f}s • {meta_orig['sample_count']:,} samples",
             bordered=True,
         ),
         mo.stat(
-            label="Active Sample Rate",
+            label="Resampled Rate",
             value=f"{meta_res['sampling_rate']:,} Hz",
-            caption=f"{size_saving:.1f}% file size savings ({meta_res['pcm_kb']:.1f} KB)" if size_saving > 0 else "Full reference fidelity",
+            caption=f"{size_saving:.1f}% bandwidth reduction" if size_saving > 0 else "Full fidelity reference",
             bordered=True,
         ),
         mo.stat(
-            label="Nyquist Limit (Fs / 2)",
+            label="Nyquist Limit",
             value=f"{meta_res['nyquist_hz']/1000.0:.1f} kHz",
-            caption="Strict upper frequency threshold",
+            caption=r"Max frequency $f_s / 2$",
             bordered=True,
         ),
-    ], widths="equal", gap=1.5)
+    ], widths="equal", gap=1.0)
 
     takeaway_box = mo.callout(
         mo.md(
             f"""
-            ### 💡 The Core Intuition: Why Sample Rate Dictates Pitch & Clarity
-
-            1. **The Nyquist Barrier ($f_\\text{{max}} = \\frac{{f_s}}{{2}} = \\mathbf{{{meta_res['nyquist_hz']/1000.0:.1f}\\text{{ kHz}}}}$):** To capture and reproduce a sound frequency $f$, digital recording requires at least **2 discrete samples per cycle** (one for the crest, one for the trough). Any frequency component above this ceiling cannot be captured and is eliminated by the anti-aliasing filter.
-            2. **Acoustic & Visual Proof:** When you switch to **8,000 Hz** (Telephone) or **4,000 Hz** (Walkie-Talkie), notice how the metallic chime's airy brilliance and high sparkle disappear from the audio, while the discrete dots in the time-domain waveform visibly spread apart and the red Nyquist barrier in the spectrum drops to truncate the high frequencies!
+            **How it works:** Digital recording requires at least **2 samples per cycle** to reproduce a frequency ($f_\\text{{max}} = f_s / 2 = \\mathbf{{{meta_res['nyquist_hz']/1000.0:.1f}\\text{{ kHz}}}}$). When you select lower sampling rates (e.g. 8 kHz or 4 kHz), frequencies above the red Nyquist line cannot be captured and are filtered out, making the sound muffled and spacing the discrete sample dots farther apart.
             """
         ),
         kind="info",
@@ -668,15 +657,15 @@ def app_layout(
     takeaway_box,
 ):
     header = mo.vstack([
-        mo.md("# Digital Audio Sampling & The Nyquist Principle"),
-        mo.md("Listen, visualize, and understand how digital sampling rates define frequency bandwidth and sound fidelity."),
-    ], gap=0.5)
+        mo.md("# Audio Sampling & The Nyquist Principle"),
+        mo.md("Listen, visualize, and understand how digital sampling rates determine frequency bandwidth and sound fidelity."),
+    ], gap=0.3)
 
     controls_panel = mo.hstack(
         [audio_upload, rate_select],
         justify="space-between",
         align="center",
-        gap=2.0,
+        gap=1.5,
     )
 
     notebook_view = mo.vstack([
@@ -685,7 +674,7 @@ def app_layout(
         player_widget,
         metrics_card,
         takeaway_box,
-    ], gap=1.5)
+    ], gap=1.2)
 
     notebook_view
     return controls_panel, header, notebook_view
