@@ -3,14 +3,15 @@
 # dependencies = [
 #     "numpy",
 #     "scipy",
-#     "soundfile",
 # ]
 # ///
 
 """Sound I/O, preset management, serialization, and synthetic audio generation.
 
-Handles decoding audio files (.wav, .mp3, .ogg, .flac), loading bundled presets,
-converting float32 arrays into 16-bit PCM base64 WAV URIs, and fallback synthesis.
+Handles decoding audio files (.wav in pure Python for 100% WASM/Pyodide compatibility,
+with optional soundfile fallback for .mp3/.ogg/.flac), loading bundled presets (with
+remote GitHub raw fallback for WebAssembly environments), base64 WAV data URI encoding,
+and synthetic harmonic bell generation.
 """
 
 from __future__ import annotations
@@ -18,34 +19,42 @@ from __future__ import annotations
 import base64
 import io
 import pathlib
+import urllib.request
 import numpy as np
 import scipy.io.wavfile as wav
-import soundfile as sf
+
+try:
+    import soundfile as sf
+except Exception:
+    sf = None
 
 _PRESET_DIR = pathlib.Path(__file__).parent / "assets" / "presets"
+_GITHUB_RAW_BASE = "https://raw.githubusercontent.com/mushtaq/kimiya-assignments/main/sampling/assets/presets"
 
 PRESETS: dict[str, dict[str, str]] = {
     "jazz_vibes": {
         "name": "Jazz Vibes (Kevin MacLeod)",
-        "file": "jazz_vibes.ogg",
+        "file": "jazz_vibes.wav",
     },
     "classical_strings": {
         "name": "Classical Strings (Brahms)",
-        "file": "classical_strings.ogg",
+        "file": "classical_strings.wav",
     },
     "drums_beat": {
         "name": "Drums & Bass Beat (Admiral Bob)",
-        "file": "drums_beat.ogg",
+        "file": "drums_beat.wav",
     },
     "speech_voice": {
         "name": "Spoken Speech (LibriSpeech)",
-        "file": "speech_voice.ogg",
+        "file": "speech_voice.wav",
     },
     "solo_trumpet": {
         "name": "Solo Trumpet (Mihai Sorohan)",
-        "file": "solo_trumpet.ogg",
+        "file": "solo_trumpet.wav",
     },
 }
+
+_PRESET_CACHE: dict[str, tuple[np.ndarray, int, str]] = {}
 
 
 def synth_educational_bell(duration_s: float = 3.0, sr: int = 48000) -> tuple[np.ndarray, int]:
@@ -86,43 +95,101 @@ def synth_educational_bell(duration_s: float = 3.0, sr: int = 48000) -> tuple[np
     return signal.astype(np.float32), sr
 
 
+def decode_audio_bytes(raw_bytes: bytes, max_duration_s: float = 8.0) -> tuple[np.ndarray, int]:
+    """Decodes raw audio bytes into a normalized float32 mono array (WAV or soundfile)."""
+    data = None
+    sr = None
+
+    # 1. Pure Python scipy.io.wavfile decoder (100% WASM/Pyodide safe)
+    try:
+        sr, data = wav.read(io.BytesIO(raw_bytes))
+    except Exception:
+        pass
+
+    # 2. Soundfile fallback if available (for MP3/OGG/FLAC in native Python)
+    if data is None and sf is not None:
+        try:
+            data, sr = sf.read(io.BytesIO(raw_bytes))
+        except Exception:
+            pass
+
+    if data is None or sr is None:
+        raise ValueError("Could not decode audio data format")
+
+    if data.ndim > 1:
+        data = data.mean(axis=1)
+
+    if np.issubdtype(data.dtype, np.integer):
+        max_int = np.iinfo(data.dtype).max
+        audio = data.astype(np.float32) / float(max_int)
+    else:
+        audio = data.astype(np.float32)
+
+    # Trim to max_duration_s
+    max_samples = int(max_duration_s * sr)
+    if len(audio) > max_samples:
+        audio = audio[:max_samples]
+
+    # Smooth crossfade
+    fade_len = int(0.04 * sr)
+    if fade_len > 0 and len(audio) > 2 * fade_len:
+        audio[:fade_len] *= np.linspace(0, 1, fade_len)
+        audio[-fade_len:] *= np.linspace(1, 0, fade_len)
+
+    max_val = np.max(np.abs(audio))
+    if max_val > 0:
+        audio = (audio / max_val) * 0.95
+
+    return audio.astype(np.float32), int(sr)
+
+
 def load_preset_audio(preset_key: str) -> tuple[np.ndarray, int, str]:
-    """Loads a bundled preset audio file from assets/presets or falls back to synthetic bell."""
+    """Loads a preset audio file (local disk or GitHub raw in WASM) with in-memory caching."""
+    if preset_key in _PRESET_CACHE:
+        return _PRESET_CACHE[preset_key]
+
     if preset_key in PRESETS:
         preset_info = PRESETS[preset_key]
-        path = _PRESET_DIR / preset_info["file"]
-        if path.exists():
+        raw_bytes = None
+
+        # 1. Try reading from local file system
+        local_path = _PRESET_DIR / preset_info["file"]
+        if local_path.exists():
             try:
-                data, sr = sf.read(path)
-                if data.ndim > 1:
-                    data = data.mean(axis=1)
-                max_val = np.max(np.abs(data))
-                if max_val > 0:
-                    data = (data / max_val) * 0.95
-                return data.astype(np.float32), int(sr), preset_info["name"]
+                raw_bytes = local_path.read_bytes()
+            except Exception:
+                pass
+
+        # 2. If not on local disk (e.g. Pyodide/WASM on marimo.app), fetch via HTTP from GitHub raw
+        if raw_bytes is None:
+            try:
+                url = f"{_GITHUB_RAW_BASE}/{preset_info['file']}"
+                req = urllib.request.Request(url, headers={"User-Agent": "marimo-sampling"})
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    raw_bytes = resp.read()
+            except Exception:
+                pass
+
+        if raw_bytes is not None:
+            try:
+                audio, sr = decode_audio_bytes(raw_bytes)
+                result = (audio, sr, preset_info["name"])
+                _PRESET_CACHE[preset_key] = result
+                return result
             except Exception:
                 pass
 
     if preset_key == "bell":
         audio, sr = synth_educational_bell()
+        result = (audio, sr, "Harmonic Bell (Synthetic)")
+        _PRESET_CACHE["bell"] = result
+        return result
+
+    # Fallback to jazz_vibes or synthetic bell
+    if "jazz_vibes" not in _PRESET_CACHE:
+        audio, sr = synth_educational_bell()
         return audio, sr, "Harmonic Bell (Synthetic)"
-
-    # Fallback to jazz_vibes default or bell
-    default_path = _PRESET_DIR / "jazz_vibes.ogg"
-    if default_path.exists():
-        try:
-            data, sr = sf.read(default_path)
-            if data.ndim > 1:
-                data = data.mean(axis=1)
-            max_val = np.max(np.abs(data))
-            if max_val > 0:
-                data = (data / max_val) * 0.95
-            return data.astype(np.float32), int(sr), "Jazz Vibes (Kevin MacLeod)"
-        except Exception:
-            pass
-
-    audio, sr = synth_educational_bell()
-    return audio, sr, "Default Harmonic Bell"
+    return _PRESET_CACHE["jazz_vibes"]
 
 
 def load_audio_data(
@@ -130,35 +197,12 @@ def load_audio_data(
     filename: str | None = None,
     max_duration_s: float = 8.0,
 ) -> tuple[np.ndarray, int, str]:
-    """Loads uploaded audio (.wav, .mp3, .ogg, .flac) or falls back to preset."""
+    """Loads uploaded audio (.wav, .mp3, .ogg, .flac) or falls back to default preset."""
     if raw_bytes:
         try:
-            data, sr = sf.read(io.BytesIO(raw_bytes))
-            if data.ndim > 1:
-                data = data.mean(axis=1)
-            if np.issubdtype(data.dtype, np.integer):
-                max_int = np.iinfo(data.dtype).max
-                audio = data.astype(np.float32) / max_int
-            else:
-                audio = data.astype(np.float32)
-
-            # Trim to loop snippet if longer than max_duration_s
-            max_samples = int(max_duration_s * sr)
-            if len(audio) > max_samples:
-                audio = audio[:max_samples]
-
-            # Smooth loop crossfade
-            fade_len = int(0.04 * sr)
-            if fade_len > 0 and len(audio) > 2 * fade_len:
-                audio[:fade_len] *= np.linspace(0, 1, fade_len)
-                audio[-fade_len:] *= np.linspace(1, 0, fade_len)
-
-            max_val = np.max(np.abs(audio))
-            if max_val > 0:
-                audio = (audio / max_val) * 0.95
-
+            audio, sr = decode_audio_bytes(raw_bytes, max_duration_s)
             name = filename if filename else "Uploaded Audio"
-            return audio, int(sr), name
+            return audio, sr, name
         except Exception:
             pass
     return load_preset_audio("jazz_vibes")
@@ -188,7 +232,7 @@ def audio_to_base64_wav(audio: np.ndarray, sr: int) -> str:
 
 
 if __name__ == "__main__":
-    print("--- Sound I/O & Presets Test ---")
+    print("--- Sound I/O & Presets Test (WASM Safe) ---")
     for key in PRESETS:
         audio, sr, name = load_preset_audio(key)
         print(f"Loaded {key:18}: {name:30} | {len(audio):,} samples @ {sr} Hz")
