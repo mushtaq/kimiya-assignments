@@ -5,7 +5,6 @@
 #     "marimo",
 #     "numpy",
 #     "scipy",
-#     "soundfile",
 #     "traitlets",
 # ]
 # ///
