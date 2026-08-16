@@ -38,9 +38,23 @@ def imports():
 
 
 @app.cell(hide_code=True)
-def controls(ui):
-    audio_upload, rate_select = ui.create_controls()
-    return audio_upload, rate_select
+def upload_control(ui):
+    audio_upload = ui.create_audio_upload()
+    return (audio_upload,)
+
+
+@app.cell(hide_code=True)
+def load_source_audio(audio_upload, dsp):
+    raw_content = audio_upload.contents() if audio_upload.value else None
+    uploaded_name = audio_upload.name() if audio_upload.value else None
+    source_audio, source_sr, source_name = dsp.load_audio_data(raw_content, uploaded_name)
+    return source_audio, source_name, source_sr
+
+
+@app.cell(hide_code=True)
+def rate_control(source_sr, ui):
+    rate_select = ui.create_rate_radio(source_sr)
+    return (rate_select,)
 
 
 @app.cell(hide_code=True)
@@ -50,15 +64,17 @@ def player_init(AudioSamplingPlayer, mo):
 
 
 @app.cell(hide_code=True)
-def process_audio(audio_upload, dsp, player_widget, rate_select):
-    raw_content = audio_upload.contents() if audio_upload.value else None
-    uploaded_name = audio_upload.name() if audio_upload.value else None
-    source_audio, source_sr, source_name = dsp.load_audio_data(raw_content, uploaded_name)
-
+def process_audio(
+    dsp,
+    player_widget,
+    rate_select,
+    source_audio,
+    source_name,
+    source_sr,
+):
     target_sr = rate_select.value if rate_select.value else source_sr
     resampled_audio, actual_sr = dsp.resample_audio(source_audio, source_sr, target_sr)
 
-    meta_orig = dsp.compute_audio_metrics(source_audio, source_sr)
     meta_res = dsp.compute_audio_metrics(resampled_audio, actual_sr)
     wav_b64 = dsp.audio_to_base64_wav(resampled_audio, actual_sr)
 
@@ -69,28 +85,18 @@ def process_audio(audio_upload, dsp, player_widget, rate_select):
     player_widget.widget.duration_s = meta_res["duration_s"]
     player_widget.widget.clip_name = source_name
 
-    return meta_orig, meta_res
+    return (meta_res,)
 
 
 @app.cell(hide_code=True)
-def app_view(
-    audio_upload,
-    meta_orig,
-    meta_res,
-    mo,
-    player_widget,
-    rate_select,
-    ui,
-):
+def app_view(audio_upload, meta_res, mo, player_widget, rate_select, ui):
     header = ui.create_header()
     controls_card = ui.create_controls_card(audio_upload, rate_select)
-    metrics_card = ui.create_metrics_card(meta_orig, meta_res)
     takeaway_box = ui.create_takeaway(meta_res["nyquist_hz"])
 
     left_column = mo.vstack([
         header,
         controls_card,
-        metrics_card,
     ], gap=1.0)
 
     right_column = mo.vstack([
