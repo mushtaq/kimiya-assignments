@@ -14,6 +14,7 @@
 
 Composed Marimo application that orchestrates:
 - Pure Python DSP math (`dsp.py`)
+- Audio I/O, preset management, and WAV serialization (`sound.py`)
 - WebAudio / Canvas AnyWidget visualizer (`widget.py`)
 - Reusable UI cards and layouts (`ui.py`)
 """
@@ -28,10 +29,11 @@ app = marimo.App(width="medium", app_title="Audio Sampling")
 def imports():
     import marimo as mo
     import dsp
+    import sound
     import ui
     from widget import AudioSamplingPlayer
 
-    return AudioSamplingPlayer, dsp, mo, ui
+    return AudioSamplingPlayer, dsp, mo, sound, ui
 
 
 @app.cell(hide_code=True)
@@ -42,10 +44,10 @@ def source_control(ui):
 
 
 @app.cell(hide_code=True)
-def load_source_audio(audio_upload, dsp, source_select):
+def load_source_audio(audio_upload, sound, source_select):
     raw_content = audio_upload.contents() if audio_upload.value else None
     uploaded_name = audio_upload.name() if audio_upload.value else None
-    source_audio, source_sr, source_name = dsp.load_preset_or_upload(
+    source_audio, source_sr, source_name = sound.load_preset_or_upload(
         source_select.value,
         raw_content,
         uploaded_name,
@@ -70,6 +72,7 @@ def process_audio(
     dsp,
     player_widget,
     rate_select,
+    sound,
     source_audio,
     source_name,
     source_sr,
@@ -78,7 +81,7 @@ def process_audio(
     resampled_audio, actual_sr = dsp.resample_audio(source_audio, source_sr, target_sr)
 
     meta_res = dsp.compute_audio_metrics(resampled_audio, actual_sr)
-    wav_b64 = dsp.audio_to_base64_wav(resampled_audio, actual_sr)
+    wav_b64 = sound.audio_to_base64_wav(resampled_audio, actual_sr)
 
     # Directly synchronize AnyWidget traitlets without remounting DOM
     player_widget.widget.b64_data = wav_b64
