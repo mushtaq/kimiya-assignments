@@ -1,3 +1,12 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#     "numpy",
+#     "scipy",
+#     "soundfile",
+# ]
+# ///
+
 """Pure Python Mathematical Digital Signal Processing (DSP) Engine.
 
 Demonstrates band-limited harmonic synthesis, audio loading/decoding,
@@ -58,7 +67,7 @@ def load_audio_data(
     max_duration_s: float = 8.0,
 ) -> tuple[np.ndarray, int, str]:
     """Loads uploaded audio (.wav, .mp3, .ogg, .flac) or falls back to the educational bell."""
-    if raw_bytes and len(raw_bytes) > 0:
+    if raw_bytes:
         try:
             data, sr = sf.read(io.BytesIO(raw_bytes))
             if data.ndim > 1:
@@ -85,10 +94,10 @@ def load_audio_data(
                 audio = (audio / max_val) * 0.95
 
             name = filename if filename else "Uploaded Audio"
-            return audio.astype(np.float32), int(sr), name
+            return audio, int(sr), name
         except Exception:
             pass
-    audio, sr = synth_educational_bell(3.0, 48000)
+    audio, sr = synth_educational_bell()
     return audio, sr, "Default Harmonic Bell"
 
 
@@ -103,15 +112,12 @@ def resample_audio(audio: np.ndarray, orig_sr: int, target_sr: int) -> tuple[np.
 
 
 def compute_audio_metrics(audio: np.ndarray, sr: int) -> dict:
-    """Computes sample count, duration, raw PCM size, and theoretical Nyquist limit."""
+    """Computes duration, sampling rate, and theoretical Nyquist limit."""
     duration_s = float(len(audio)) / float(sr) if sr > 0 else 0.0
-    pcm_kb = float(len(audio) * 2) / 1024.0
     nyquist_hz = float(sr) / 2.0
     return {
         "duration_s": duration_s,
-        "sample_count": len(audio),
         "sampling_rate": sr,
-        "pcm_kb": pcm_kb,
         "nyquist_hz": nyquist_hz,
     }
 
@@ -127,10 +133,10 @@ def audio_to_base64_wav(audio: np.ndarray, sr: int) -> str:
 
 if __name__ == "__main__":
     print("--- Pure Python DSP Engine Demo ---")
-    audio, sr = synth_educational_bell(duration_s=3.0, sr=48000)
+    audio, sr = synth_educational_bell()
     metrics = compute_audio_metrics(audio, sr)
-    print(f"Synthesized: {metrics['duration_s']:.2f}s, {metrics['sample_count']:,} samples @ {sr} Hz")
-    print(f"Nyquist limit: {metrics['nyquist_hz']/1000.0:.1f} kHz, PCM size: {metrics['pcm_kb']:.1f} KB")
+    print(f"Synthesized: {metrics['duration_s']:.2f}s, {len(audio):,} samples @ {sr} Hz")
+    print(f"Nyquist limit: {metrics['nyquist_hz']/1000.0:.1f} kHz")
 
     resampled, res_sr = resample_audio(audio, sr, 8000)
     res_metrics = compute_audio_metrics(resampled, res_sr)
