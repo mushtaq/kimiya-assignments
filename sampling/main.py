@@ -1,3 +1,15 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#     "anywidget",
+#     "marimo",
+#     "numpy",
+#     "scipy",
+#     "soundfile",
+#     "traitlets",
+# ]
+# ///
+
 """Digital Audio Sampling.
 
 Composed Marimo application that orchestrates:
