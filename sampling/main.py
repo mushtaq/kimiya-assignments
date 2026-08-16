@@ -111,12 +111,9 @@ def app_view(
         controls_card,
     ], gap=1.0)
 
-    right_column = mo.vstack([
-        player_widget,
-        takeaway_box,
-    ], gap=1.0)
+    right_column = player_widget
 
-    dashboard = ui.create_dashboard_layout(left_column, right_column)
+    dashboard = ui.create_dashboard_layout(left_column, right_column, takeaway_box)
     dashboard
     return
 
